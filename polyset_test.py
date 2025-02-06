@@ -58,7 +58,7 @@ def test_polyset_to_csg():
     # Test Case 1: Single square
     square = create_square(0, 0, 10)
     csg = polyset_to_csg([square])
-    assert isinstance(csg, ws.PolyLine2D), "Test Case 1 Failed"
+    assert isinstance(csg, gls.PolyLine2D), "Test Case 1 Failed"
 
     # Test Case 2: Square with a hole
     outer_square = create_square(0, 0, 10, mode=1)

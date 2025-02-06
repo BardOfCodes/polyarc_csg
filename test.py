@@ -70,32 +70,32 @@ from splitweaver.symbolic.base import CustomJSONEncoder
 import json
 from woodie.dag.mapper import convert_to_woodie_dag
 import woodie.dag as wdag
-from polyline_csg.parser import parse_csg_to_valid_polyset
+from polyline_csg.polyset_parser import parse_csg_to_valid_polyset
 from polyline_csg.polyset import polyset_to_csg
 
-outer_circle_1 = ws.PolyLine2D(
+outer_circle_1 = gls.PolyLine2D(
     tuple([(0, 0, 0.5), (1, 0, 0.5), (1, 1, 0.5), (0, 1, 0.5)])
     )
 # increase resolution
 RESOLUTION = 1000
-outer_circle_1 = ws.PolyLine2D(tuple([(x[0] * RESOLUTION, x[1] * RESOLUTION, x[2]) for x in outer_circle_1.args[0]]))
+outer_circle_1 = gls.PolyLine2D(tuple([(x[0] * RESOLUTION, x[1] * RESOLUTION, x[2]) for x in outer_circle_1.args[0]]))
 
-hole_1 = ws.PolyLine2D(
+hole_1 = gls.PolyLine2D(
     tuple([
     (.2, .2, 0.5), (.8, .2, 0.5), (.8, .8, 0.5), (.2, .8, 0.5)
 ])
 )
-hole_1 = ws.PolyLine2D(tuple([(x[0] * RESOLUTION, x[1] * RESOLUTION, x[2]) for x in hole_1.args[0]]))
-outer_circle_2 = ws.PolyLine2D(
+hole_1 = gls.PolyLine2D(tuple([(x[0] * RESOLUTION, x[1] * RESOLUTION, x[2]) for x in hole_1.args[0]]))
+outer_circle_2 = gls.PolyLine2D(
     tuple([
     (0.5, 0, 0.5), (1.5, 0, 0.5), (1.5, 1, 0.5), (0.5, 1, 0.5)
 ]))
-outer_circle_2 = ws.PolyLine2D(tuple([(x[0] * RESOLUTION, x[1] * RESOLUTION, x[2]) for x in outer_circle_2.args[0]]))
-hole_2 = ws.PolyLine2D(
+outer_circle_2 = gls.PolyLine2D(tuple([(x[0] * RESOLUTION, x[1] * RESOLUTION, x[2]) for x in outer_circle_2.args[0]]))
+hole_2 = gls.PolyLine2D(
     tuple([
     (0.7, .2, 0.5), (1.3, .2, 0.5), (1.3, .8, 0.5), (0.7, .8, 0.5)
 ]))
-hole_2 = ws.PolyLine2D(tuple([(x[0] * RESOLUTION, x[1] * RESOLUTION, x[2]) for x in hole_2.args[0]]))
+hole_2 = gls.PolyLine2D(tuple([(x[0] * RESOLUTION, x[1] * RESOLUTION, x[2]) for x in hole_2.args[0]]))
 
 expr = gls.Union(
     gls.Difference(outer_circle_1, hole_1),
@@ -107,8 +107,8 @@ expr = polyset_to_csg(result_polyset)
 print(expr)
 
 def reduce_resolution(expr):
-    if isinstance(expr, ws.PolyLine2D):
-        return ws.PolyLine2D(tuple([(x[0] / RESOLUTION, x[1] / RESOLUTION, x[2]) for x in expr.args[0]]))
+    if isinstance(expr, gls.PolyLine2D):
+        return gls.PolyLine2D(tuple([(x[0] / RESOLUTION, x[1] / RESOLUTION, x[2]) for x in expr.args[0]]))
     else:
         return expr.__class__(*(reduce_resolution(arg) for arg in expr.args))
     

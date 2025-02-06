@@ -3,7 +3,9 @@ import networkx as nx
 import polyline_rs as prs
 import geolipi.symbolic as gls
 import woodie.symbolic as ws
+from geolipi.symbolic.base_symbolic import GLFunction
 
+UPSCALING_FACTOR = 1000  # Upscaling factor for higher resolution
 def construct_enclosure_sequences(polyset):
     """
     Constructs enclosure sequences from a given PolySet by identifying immediate enclosure relationships.
@@ -119,7 +121,8 @@ def polyset_to_csg(polyset):
         children = list(TR.successors(node))
         
         if not children:
-            return ws.PolyLine2D(tuple(node.polyline))  # Leaf node is just a primitive
+            expr_arg = revert_to_argform(node.polyline)
+            return gls.PolyLine2D(expr_arg)  # Leaf node is just a primitive
 
         # Recursively construct expressions for children
         child_exprs = [construct_csg(child) for child in children]
@@ -130,7 +133,8 @@ def polyset_to_csg(polyset):
         else:
             child_expr = gls.Union(*child_exprs)
         
-        return gls.Difference(ws.PolyLine2D(tuple(node.polyline)), child_expr)
+        expr_arg = revert_to_argform(node.polyline)
+        return gls.Difference(gls.PolyLine2D(expr_arg), child_expr)
 
 
     # Step 3: Handle multiple roots (disjoint top-level shapes)
@@ -141,3 +145,85 @@ def polyset_to_csg(polyset):
     final_expr = gls.Union(*root_exprs) if len(root_exprs) > 1 else root_exprs[0]
 
     return final_expr
+
+def revert_to_argform(polyline):
+    """
+    Reverts a PolyLine2D back to its argument form.
+    
+    Args:
+        polyline (gls.PolyLine2D): The input PolyLine2D.
+    
+    Returns:
+        tuple: The argument form of the PolyLine2D.
+    """
+    arg = tuple([(x[0], x[1], x[2]) for x in polyline])
+    return arg
+
+def extract_primitives_with_signs(expression, current_sign=1):
+    """
+    Recursively extracts primitives (gls.PolyLine2D) from the expression tree, tracking their signs.
+    
+    Args:
+        expression (GLFunction): The CSG expression.
+        current_sign (int): The current sign (+1 or -1) based on parent operations.
+    
+    Returns:
+        List[Tuple[gls.PolyLine2D, int]]: A list of primitives with their corresponding signs.
+    """
+    primitives = []
+
+    if isinstance(expression, gls.PolyLine2D):
+        primitives.append((expression, current_sign))
+    
+    elif isinstance(expression, gls.Complement):
+        primitives.extend(extract_primitives_with_signs(expression.args[0], -current_sign))
+
+    elif isinstance(expression, gls.Difference):
+        # Left child retains the sign, right child flips the sign
+        primitives.extend(extract_primitives_with_signs(expression.args[0], current_sign))
+        primitives.extend(extract_primitives_with_signs(expression.args[1], -current_sign))
+    
+    elif isinstance(expression, (gls.Union, gls.Intersection)):
+        for child in expression.args:
+            primitives.extend(extract_primitives_with_signs(child, current_sign))
+
+    return primitives
+
+def csg_to_polyset(expression: GLFunction):
+
+    primitives = extract_primitives_with_signs(expression)
+    polyset = []
+    for prim in primitives:
+        updated_points = [(x[0], x[1], x[2]) for x in prim[0].args[0]]
+        polyset.append(prs.PolyStruct(polyline=updated_points, is_closed=True, mode=prim[1]))
+    return polyset
+
+
+def upscale_polyexpr(polyexpr, factor=UPSCALING_FACTOR):
+    if isinstance(polyexpr, gls.PolyLine2D):
+        points = polyexpr.args[0]
+        upscaled_points = tuple([(x[0] * factor, x[1] * factor, x[2]) for x in points])
+        new_polyline = gls.PolyLine2D(upscaled_points)
+        return new_polyline
+    else:    
+        new_args = []
+        for arg in polyexpr.args:
+            out = upscale_polyexpr(arg, factor)
+            new_args.append(out)
+        return type(polyexpr)(*new_args)
+
+def downscale_polyset(polyset, factor=UPSCALING_FACTOR):
+    """
+    Downscale a PolySet by a given factor.
+    
+    Args:
+        polyset (list of prs.PolyStruct): The input PolySet.
+        factor (int): The downscaling factor.
+    
+    Returns:
+        list of prs.PolyStruct: The downscaled PolySet.
+    """
+    def downscale_polyline(polyline, factor):
+        return [(x[0] / factor, x[1] / factor, x[2]) for x in polyline]
+
+    return [prs.PolyStruct(downscale_polyline(poly.polyline, factor), poly.is_closed, poly.mode) for poly in polyset]
