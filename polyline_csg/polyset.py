@@ -71,8 +71,11 @@ def is_valid_polyset(polyset):
     # Check for intersections
     for i, poly_a in enumerate(polyset):
         for j, poly_b in enumerate(polyset):
-            if i != j and prs.is_intersected(poly_a, poly_b):
-                return False  # Intersecting polylines are not allowed
+            if i != j:
+                if prs.is_intersected(poly_a, poly_b):
+                    return False  # Intersecting polylines are not allowed
+                if prs.is_overlapping(poly_a, poly_b):
+                    return False
 
     # Construct enclosure sequences
     sequences = construct_enclosure_sequences(polyset)
@@ -82,7 +85,8 @@ def is_valid_polyset(polyset):
         for k in range(len(seq) - 1):
             if seq[k].mode == seq[k + 1].mode:
                 return False  # Consecutive elements should not have the same mode
-
+    # Also No two should match
+    
     return True  # Passed all checks
 
 
@@ -121,8 +125,7 @@ def polyset_to_csg(polyset):
         children = list(TR.successors(node))
         
         if not children:
-            expr_arg = revert_to_argform(node.polyline)
-            return gls.PolyLine2D(expr_arg)  # Leaf node is just a primitive
+            return gls.PolyLine2D(node.polyline)  # Leaf node is just a primitive
 
         # Recursively construct expressions for children
         child_exprs = [construct_csg(child) for child in children]
@@ -133,8 +136,7 @@ def polyset_to_csg(polyset):
         else:
             child_expr = gls.Union(*child_exprs)
         
-        expr_arg = revert_to_argform(node.polyline)
-        return gls.Difference(gls.PolyLine2D(expr_arg), child_expr)
+        return gls.Difference(gls.PolyLine2D(node.polyline), child_expr)
 
 
     # Step 3: Handle multiple roots (disjoint top-level shapes)
@@ -142,11 +144,17 @@ def polyset_to_csg(polyset):
     root_exprs = [gls.Complement(expr) if roots[ind].mode == -1 else expr for ind, expr in enumerate(root_exprs)]
 
     # Combine multiple roots using Union
-    final_expr = gls.Union(*root_exprs) if len(root_exprs) > 1 else root_exprs[0]
-
+    # what to do in case of empty?
+    if len(root_exprs) > 1:
+        final_expr = gls.Union(*root_exprs)
+    elif len(root_exprs) == 1:
+        final_expr = root_exprs[0]
+    else:
+        final_expr = gls.NullExpression2D()
+        
     return final_expr
 
-def revert_to_argform(polyline):
+def sp_tuple_to_tuple(polyline):
     """
     Reverts a PolyLine2D back to its argument form.
     
@@ -190,14 +198,38 @@ def extract_primitives_with_signs(expression, current_sign=1):
     return primitives
 
 def csg_to_polyset(expression: GLFunction):
-
     primitives = extract_primitives_with_signs(expression)
     polyset = []
     for prim in primitives:
-        updated_points = [(x[0], x[1], x[2]) for x in prim[0].args[0]]
+        updated_points = sp_tuple_to_tuple(prim[0].args[0])
         polyset.append(prs.PolyStruct(polyline=updated_points, is_closed=True, mode=prim[1]))
     return polyset
 
+def clean_polyset(polyset):
+    """
+    Cleans a PolySet by removing redundant primitives and empty
+    """
+    cleaned_polyset = []
+    for poly in polyset:
+        bbox = prs.compute_extents(poly)
+        
+        # Compute path length
+        length = prs.compute_path_length(poly)
+        # Compute area
+        area = prs.compute_area(poly)
+
+        # Remove redundant vertices
+        cleaned_poly = prs.remove_redundant_vertices(poly, epsilon=1e-9)
+        if cleaned_poly is None:        
+            failed_cleaning = True
+            cleaned_poly = poly
+        else:
+            failed_cleaning = False
+        condition_met = (abs(area) > 0.0) and (abs(length) > 0.0)
+        if condition_met:
+            cleaned_polyset.append(cleaned_poly)
+    return cleaned_polyset
+        
 
 def upscale_polyexpr(polyexpr, factor=UPSCALING_FACTOR):
     if isinstance(polyexpr, gls.PolyLine2D):
@@ -224,6 +256,6 @@ def downscale_polyset(polyset, factor=UPSCALING_FACTOR):
         list of prs.PolyStruct: The downscaled PolySet.
     """
     def downscale_polyline(polyline, factor):
-        return [(x[0] / factor, x[1] / factor, x[2]) for x in polyline]
+        return tuple([(x[0] / factor, x[1] / factor, x[2]) for x in polyline])
 
     return [prs.PolyStruct(downscale_polyline(poly.polyline, factor), poly.is_closed, poly.mode) for poly in polyset]

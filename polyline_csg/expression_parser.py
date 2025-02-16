@@ -54,7 +54,7 @@ def resolve_difference(expression: GLFunction, ):
                     tree_branches.append(arg)
             n_args = len(tree_branches)
 
-            if type(cur_expr) == gls.Difference:
+            if isinstance(cur_expr, (gls.Difference, gls.Complement)):
                 inversion_stack.append(not inversion_mode)
             else:
                 inversion_stack.append(inversion_mode)
@@ -91,13 +91,16 @@ def resolve_difference(expression: GLFunction, ):
             _ = execution_pointer_index.pop()
             params = operator_params_stack.pop()
             args = execution_stack[-n_args:]
-            new_canvas = operator(*args, *params)
+            if isinstance(operator, gls.Complement):
+                new_canvas = args[0]
+            else:
+                new_canvas = operator(*args, *params)
             execution_stack = execution_stack[:-n_args] + [new_canvas]
     expression = execution_stack[0]
     return expression
 
 
-def resolve_transfroms_and_params(expression, sketcher:Sketcher, uniforms: Dict[str, th.Tensor]):
+def resolve_to_transform_free_polyline_expr(expression, sketcher:Sketcher, uniforms: Dict[str, th.Tensor],):
 
     transforms_stack = [sketcher.get_affine_identity()]
     execution_stack = []
@@ -106,6 +109,7 @@ def resolve_transfroms_and_params(expression, sketcher:Sketcher, uniforms: Dict[
     operator_params_stack = []
     execution_pointer_index = []
     parser_list = [expression]
+    device = sketcher.device
 
 
     while parser_list:
@@ -134,8 +138,8 @@ def resolve_transfroms_and_params(expression, sketcher:Sketcher, uniforms: Dict[
             params = cur_expr.args[1:]
             params = recursive_parse_param(cur_expr, params, uniforms)
             # This is a hack unclear how to deal with other types)
-            # if isinstance(cur_expr, (gls.EulerRotate2D, gls.Translate2D)):
-            #     params = [-params[0]]
+            if isinstance(cur_expr, (gls.EulerRotate2D)):
+                params = [-params[0]]
             # elif isinstance(cur_expr, gls.Scale2D):
             #     params = [1.0 / params[0]]
             transform = transforms_stack.pop()
@@ -151,7 +155,7 @@ def resolve_transfroms_and_params(expression, sketcher:Sketcher, uniforms: Dict[
             params = cur_expr.args
             params = recursive_parse_param(cur_expr, params, uniforms)
             # shape k, 3
-            polyline_points = PRIMITIVE_MAP[type(cur_expr)](*params)
+            polyline_points = PRIMITIVE_MAP[type(cur_expr)](*params).to(device=device)
             # shape 3 x 3
             transform = transforms_stack.pop()
             polyline_xy = polyline_points[:, :2]
@@ -196,8 +200,20 @@ def rect_prim(params):
             [size[0], -size[1], 0],
             [size[0], size[1], 0],
             [-size[0], size[1], 0],
-        ]
+        ],
     )
+    return points
+
+def trapezoid_prim(r1, r2, he):
+    # Construct the trapezoid corners in CCW order
+    # bottom-left -> bottom-right -> top-right -> top-left
+    return th.tensor([
+        [-r2, he, 0.0],
+        [ r2, he, 0.0],
+        [ r1,  -he, 0.0],
+        [-r1,  -he, 0.0],
+    ], dtype=th.float32)
+    
     return points
 
 def circle_prim(params):
@@ -221,6 +237,7 @@ PRIMITIVE_MAP = {
     gls.Rectangle2D: rect_prim,
     gls.Circle2D: circle_prim,
     gls.NoParamRectangle2D: no_param_rect_prim,
+    gls.Trapezoid2D: trapezoid_prim,
 }
 
 uniform_type_map = {
@@ -273,7 +290,10 @@ def param_primitive_process(param, dtype=th.float32, device=th.device("cpu")):
             if isinstance(param, sp.Integer):
                 param = th.tensor(float(param), dtype=dtype, device=device)
         else:
-            param = th.tensor([float(x) for x in param], dtype=dtype, device=device)
+            if isinstance(param[0], (list, tuple, sp.Tuple)):
+                param = [th.tensor([float(y) for y in x], dtype=dtype, device=device) for x in param]
+            else:
+                param = th.tensor([float(x) for x in param], dtype=dtype, device=device)
     return param
 
 
