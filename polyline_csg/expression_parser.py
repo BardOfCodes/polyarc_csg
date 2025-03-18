@@ -54,12 +54,14 @@ def resolve_difference(expression: GLFunction, ):
                     tree_branches.append(arg)
             n_args = len(tree_branches)
 
-            if isinstance(cur_expr, (gls.Difference, gls.Complement)):
+            
+            if isinstance(cur_expr, (gls.Difference)):
                 inversion_stack.append(not inversion_mode)
-            else:
                 inversion_stack.append(inversion_mode)
-
-            inversion_stack.extend([inversion_mode for x in range(n_args - 1)])
+            elif isinstance(cur_expr, (gls.Complement)):
+                inversion_stack.extend([not inversion_mode for x in range(n_args)])
+            else:
+                inversion_stack.extend([inversion_mode for x in range(n_args)])
 
             if inversion_mode:
                 current_symbol = INVERTED_MAP[type(cur_expr)]
@@ -91,7 +93,7 @@ def resolve_difference(expression: GLFunction, ):
             _ = execution_pointer_index.pop()
             params = operator_params_stack.pop()
             args = execution_stack[-n_args:]
-            if isinstance(operator, gls.Complement):
+            if issubclass(operator, gls.Complement):
                 new_canvas = args[0]
             else:
                 new_canvas = operator(*args, *params)
@@ -138,8 +140,8 @@ def resolve_to_transform_free_polyline_expr(expression, sketcher:Sketcher, unifo
             params = cur_expr.args[1:]
             params = recursive_parse_param(cur_expr, params, uniforms)
             # This is a hack unclear how to deal with other types)
-            if isinstance(cur_expr, (gls.EulerRotate2D)):
-                params = [-params[0]]
+            # if isinstance(cur_expr, (gls.EulerRotate2D)):
+            #     params = [-params[0]]
             # elif isinstance(cur_expr, gls.Scale2D):
             #     params = [1.0 / params[0]]
             transform = transforms_stack.pop()
@@ -208,10 +210,10 @@ def trapezoid_prim(r1, r2, he):
     # Construct the trapezoid corners in CCW order
     # bottom-left -> bottom-right -> top-right -> top-left
     return th.tensor([
-        [-r2, he, 0.0],
-        [ r2, he, 0.0],
-        [ r1,  -he, 0.0],
-        [-r1,  -he, 0.0],
+        [-r2, -he, 0.0],
+        [ r2, -he, 0.0],
+        [ r1,  he, 0.0],
+        [-r1,  he, 0.0],
     ], dtype=th.float32)
     
     return points

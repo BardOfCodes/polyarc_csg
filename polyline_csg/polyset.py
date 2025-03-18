@@ -211,23 +211,27 @@ def clean_polyset(polyset):
     """
     cleaned_polyset = []
     for poly in polyset:
-        bbox = prs.compute_extents(poly)
-        
-        # Compute path length
-        length = prs.compute_path_length(poly)
-        # Compute area
-        area = prs.compute_area(poly)
-
         # Remove redundant vertices
-        cleaned_poly = prs.remove_redundant_vertices(poly, epsilon=1e-9)
-        if cleaned_poly is None:        
+        try:
+            cleaned_poly = prs.remove_redundant_vertices(poly, epsilon=1e-5)
+            if cleaned_poly is None:        
+                failed_cleaning = True
+                cleaned_poly = poly
+            else:
+                failed_cleaning = False
+            bbox = prs.compute_extents(cleaned_poly)
+            
+            # Compute path length
+            length = prs.compute_path_length(cleaned_poly)
+            # Compute area
+            area = prs.compute_area(cleaned_poly)
+
+            condition_met = (abs(area) > 0.0) and (abs(length) > 0.0)
+            if condition_met:
+                cleaned_polyset.append(cleaned_poly)
+        except:
+            print("FAILURE with cleaning polyline")
             failed_cleaning = True
-            cleaned_poly = poly
-        else:
-            failed_cleaning = False
-        condition_met = (abs(area) > 0.0) and (abs(length) > 0.0)
-        if condition_met:
-            cleaned_polyset.append(cleaned_poly)
     return cleaned_polyset
         
 

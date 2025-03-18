@@ -1,6 +1,8 @@
 import geolipi.symbolic as gls
 from .polyset import csg_to_polyset, is_valid_polyset, polyset_to_csg
 import polyline_rs as prs
+import numpy as np
+from .polyset import upscale_polyexpr, downscale_polyset, UPSCALING_FACTOR
 
 EPSILON = 1e-7
 import torch
@@ -72,18 +74,30 @@ def determine_polyline_orientation(poly, device="cuda"):
 
     return "CCW" if total_area > 0 else "CW"
 
-def make_all_clockwise(polyset, device="cuda"):
+def make_all_clockwise(polyset):
     
     for ind, poly in enumerate(polyset):
-        if determine_polyline_orientation(poly, device=device) == "CCW":
-            # poly has polyline as a sequence of tuple. reverse it.
-            reverse_sequence = poly.polyline[::-1]
+        poly_area = prs.compute_area(poly)
+        if not np.sign(poly_area) == np.sign(poly.mode):
+            reverse_sequence = get_reverse_sequence(poly.polyline)
             new_poly = prs.PolyStruct(polyline=reverse_sequence, is_closed=True, mode=poly.mode)
             polyset[ind] = new_poly
     return polyset
 
+def get_reverse_sequence(polyline):
+    xes = [x[0] for x in polyline]
+    yes = [x[1] for x in polyline]
+    bulges = [x[2] for x in polyline]
+    reverse_x = xes[::-1]
+    reverse_y = yes[::-1]
+    reverse_bulges = bulges[::-1]
+    # roll bulge
+    reverse_bulges = reverse_bulges[1:] + reverse_bulges[:1]
+    reverse_bulges = [-x for x in reverse_bulges]
+    reverse_sequence = tuple(list(zip(reverse_x, reverse_y, reverse_bulges)))
+    return reverse_sequence
 
-def get_offset_expr(expression, device="cuda", offset=0.05):
+def get_offset_expr(expression, offset=0.05, upscale=True, factor=UPSCALING_FACTOR):
     """
     Returns the offset expression of a given expression.
     
@@ -95,17 +109,30 @@ def get_offset_expr(expression, device="cuda", offset=0.05):
         GLFunction: The offset expression.
     """
     expression = expression.sympy()
+    if upscale:
+        expression = upscale_polyexpr(expression, factor)
     polyset = csg_to_polyset(expression)
-    polyset = make_all_clockwise(polyset, device)
+    # Make all clockwise is wrong. It should be alternative, based on sign of offset.
+    polyset = make_all_clockwise(polyset)
     offset_polyset = []
     # NOTE CAN FAILE WHEN NOW OF THEM IS ZERO.
     for poly in polyset:
-        if poly.mode ==1:
-            offset_curves = prs.offset_polyline(poly, offset, False)
-        else:
-            offset_curves = prs.offset_polyline(poly, -offset, True)
+        try:
+            cleaned_poly = prs.remove_redundant_vertices(poly, epsilon=1e-5)
+            if cleaned_poly is None:     
+                cleaned_poly = poly
+            if upscale:
+                # make sure its clean
+                offset_curves = prs.offset_polyline(cleaned_poly, offset * factor, True)
+            else:
+                offset_curves = prs.offset_polyline(cleaned_poly, offset, True)
+        except:
+            print("FAILURE with offseting polyline")
+            offset_curves = []
         
         for new_poly in offset_curves:
             offset_polyset.append(new_poly)
+    if upscale:
+        offset_polyset = downscale_polyset(offset_polyset, factor)
     offset_expr = polyset_to_csg(offset_polyset)
     return offset_expr

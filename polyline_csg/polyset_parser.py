@@ -273,12 +273,14 @@ def parse_csg_to_valid_polyset_csg(expression, sketcher, *args, **kwargs):
     # Iterative refinement
     while not is_valid_polyset(polyset) and iteration_count < max_iterations:
         # Convert to DNF
+        expression = resolve_difference(expression)
         dnf_expr = expr_to_dnf(expression)
         expression = resolve_intersection(dnf_expr)
 
         if isinstance(expression, gls.NullExpression2D):
             return expression
         
+        expression = resolve_difference(expression)
         cnf_expr = expr_to_cnf(expression)
         expression = resolve_unions(cnf_expr)
 
