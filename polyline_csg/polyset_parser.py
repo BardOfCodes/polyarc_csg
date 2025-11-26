@@ -1,11 +1,11 @@
 import networkx as nx
-from geolipi.symbolic.types import COMBINATOR_TYPE, PRIM_TYPE
-from geolipi.torch_compute.utils import INVERTED_MAP, NORMAL_MAP
-from geolipi.symbolic.base_symbolic import GLFunction
+from geolipi.symbolic.symbol_types import COMBINATOR_TYPE, PRIM_TYPE
+from geolipi.torch_compute.maps import INVERTED_MAP, NORMAL_MAP
+from geolipi.symbolic.base import GLFunction
 import woodie.symbolic as ws
 import geolipi.symbolic as gls
-from geolipi.torch_compute.compile_expression import expr_to_dnf, expr_to_cnf
-import polyline_rs as prs
+# from geolipi.torch_compute.compile_expression import expr_to_dnf, expr_to_cnf
+# import polyline_rs as prs
 from itertools import chain, combinations
 from .polyset import is_valid_polyset, polyset_to_csg, csg_to_polyset, upscale_polyexpr, downscale_polyset, clean_polyset
 from .polyline import union_multiple, intersection_multiple, difference_multiple

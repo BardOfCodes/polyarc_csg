@@ -4,10 +4,10 @@ import geolipi.symbolic as gls
 import woodie.symbolic as ws
 import sympy as sp
 from typing import Dict
-from geolipi.symbolic import GLFunction
-from geolipi.symbolic.types import PRIM_TYPE, COMBINATOR_TYPE, MOD_TYPE
+from geolipi.symbolic.base import GLFunction
+from geolipi.symbolic.symbol_types import PRIM_TYPE, COMBINATOR_TYPE, MOD_TYPE
 from geolipi.torch_compute.sketcher import Sketcher
-from geolipi.torch_compute.utils import INVERTED_MAP, NORMAL_MAP, MODIFIER_MAP
+from geolipi.torch_compute.maps import INVERTED_MAP, NORMAL_MAP, MODIFIER_MAP
 
 def resolve_difference(expression: GLFunction, ):
     """

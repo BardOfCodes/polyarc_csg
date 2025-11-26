@@ -1,6 +1,6 @@
 import geolipi.symbolic as gls
 from .polyset import csg_to_polyset, is_valid_polyset, polyset_to_csg
-import polyline_rs as prs
+# import polyline_rs as prs
 import numpy as np
 from .polyset import upscale_polyexpr, downscale_polyset, UPSCALING_FACTOR
 

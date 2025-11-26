@@ -1,9 +1,9 @@
 
 import networkx as nx
-import polyline_rs as prs
+# import polyline_rs as prs
 import geolipi.symbolic as gls
 import woodie.symbolic as ws
-from geolipi.symbolic.base_symbolic import GLFunction
+from geolipi.symbolic.base import GLFunction
 
 UPSCALING_FACTOR = 1000  # Upscaling factor for higher resolution
 def construct_enclosure_sequences(polyset):

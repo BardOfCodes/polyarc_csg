@@ -1,42 +1,41 @@
-import polyline_rs as prs
-
-def union(a: prs.PolyStruct, b: prs.PolyStruct):
+# import polyline_rs as prs
+def union(a, b):
     """Returns the union of two polylines."""
     return prs.boolean_operation(a, b, "union")
 
-def intersection(a: prs.PolyStruct, b: prs.PolyStruct):
+def intersection(a, b):
     """Returns the intersection of two polylines."""
     return prs.boolean_operation(a, b, "intersection")
 
-def difference(a: prs.PolyStruct, b: prs.PolyStruct):
+def difference(a, b):
     """Returns the difference (A - B) of two polylines."""
     return prs.boolean_operation(a, b, "difference")
 
-def xor(a: prs.PolyStruct, b: prs.PolyStruct):
+def xor(a, b):
     """Returns the exclusive OR (symmetric difference) of two polylines."""
     return prs.boolean_operation(a, b, "xor")
 
-def is_disjoint(a: prs.PolyStruct, b: prs.PolyStruct) -> bool:
+def is_disjoint(a, b) -> bool:
     """Returns True if the two polylines are disjoint (no overlap)."""
     return prs.is_disjoint(a, b)
 
-def is_overlapping(a: prs.PolyStruct, b: prs.PolyStruct) -> bool:
+def is_overlapping(a, b) -> bool:
     """Returns True if polyline A overlaps with polyline B."""
     return prs.is_overlap(a, b)
 
-def is_intersected(a: prs.PolyStruct, b: prs.PolyStruct) -> bool:
+def is_intersected(a, b) -> bool:
     """Returns True if polyline A overlaps with polyline B."""
     return prs.is_intersected(a, b)
 
-def is_enclosed(a: prs.PolyStruct, b: prs.PolyStruct) -> bool:
+def is_enclosed(a, b) -> bool:
     """Returns True if polyline A is completely inside polyline B."""
     return prs.is_enclosed(a, b)
 
-def is_1_inside_2(a: prs.PolyStruct, b: prs.PolyStruct) -> bool:
+def is_1_inside_2(a, b) -> bool:
     """Returns True if polyline A is completely inside polyline B."""
     return prs.is_1_inside_2(a, b)
 
-def is_2_inside_1(a: prs.PolyStruct, b: prs.PolyStruct) -> bool:
+def is_2_inside_1(a, b) -> bool:
     """Returns True if polyline A is completely inside polyline B."""
     return prs.is_2_inside_1(a, b)
 
@@ -168,8 +167,6 @@ def deduplicate_intersection(polylines: list) -> list:
 
     return unique_polylines
 
-
-import polyline_rs as prs
 
 def difference(a_list, b_list):
     """Performs difference between two polylines."""
