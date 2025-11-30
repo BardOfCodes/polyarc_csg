@@ -1,13 +1,21 @@
+"""
+Expression parser for transforming CSG expressions into PolyArc2D primitives.
 
+Handles transforms, parametric expressions, and primitive conversion.
+"""
 import torch as th
 import geolipi.symbolic as gls
-import woodie.symbolic as ws
 import sympy as sp
-from typing import Dict
+from typing import Dict, List, Any
 from geolipi.symbolic.base import GLFunction
 from geolipi.symbolic.symbol_types import PRIM_TYPE, COMBINATOR_TYPE, MOD_TYPE
 from geolipi.torch_compute.sketcher import Sketcher
 from geolipi.torch_compute.maps import INVERTED_MAP, NORMAL_MAP, MODIFIER_MAP
+
+__all__ = [
+    "resolve_difference",
+    "resolve_to_transform_free_polyarc_expr",
+]
 
 def resolve_difference(expression: GLFunction, ):
     """
@@ -102,7 +110,7 @@ def resolve_difference(expression: GLFunction, ):
     return expression
 
 
-def resolve_to_transform_free_polyline_expr(expression, sketcher:Sketcher, uniforms: Dict[str, th.Tensor],):
+def resolve_to_transform_free_polyarc_expr(expression, sketcher:Sketcher, uniforms: Dict[str, th.Tensor],):
 
     transforms_stack = [sketcher.get_affine_identity()]
     execution_stack = []
@@ -157,15 +165,15 @@ def resolve_to_transform_free_polyline_expr(expression, sketcher:Sketcher, unifo
             params = cur_expr.args
             params = recursive_parse_param(cur_expr, params, uniforms)
             # shape k, 3
-            polyline_points = PRIMITIVE_MAP[type(cur_expr)](*params).to(device=device)
+            polyarc_points = PRIMITIVE_MAP[type(cur_expr)](*params).to(device=device)
             # shape 3 x 3
             transform = transforms_stack.pop()
-            polyline_xy = polyline_points[:, :2]
-            transformed_xy = sketcher.get_coords(transform.inverse(), polyline_xy)
-            transformed_points = th.cat([transformed_xy, polyline_points[:, 2:]], dim=1)
+            polyarc_xy = polyarc_points[:, :2]
+            transformed_xy = sketcher.get_coords(transform.inverse(), polyarc_xy)
+            transformed_points = th.cat([transformed_xy, polyarc_points[:, 2:]], dim=1)
             transformed_points = transformed_points.cpu().numpy().tolist()
             tuple_form  = tuple([tuple(x) for x in transformed_points])
-            new_expr = gls.PolyLine2D(tuple_form)
+            new_expr = gls.PolyArc2D(tuple_form)
             # Get points using the primitive mapper. 
             # Apply transform to the points. 
             # Add the new primitive to the execution stack
@@ -191,7 +199,7 @@ def resolve_to_transform_free_polyline_expr(expression, sketcher:Sketcher, unifo
     return sdf
 
 
-def polyline_prim(params):
+def polyarc_prim(params):
     params = th.stack(params, dim=0)
     return params
 
@@ -235,7 +243,7 @@ def no_param_rect_prim():
     return points
 
 PRIMITIVE_MAP = {
-    gls.PolyLine2D: polyline_prim,
+    gls.PolyArc2D: polyarc_prim,
     gls.Rectangle2D: rect_prim,
     gls.Circle2D: circle_prim,
     gls.NoParamRectangle2D: no_param_rect_prim,
@@ -243,9 +251,9 @@ PRIMITIVE_MAP = {
 }
 
 uniform_type_map = {
-    ws.UniformFloat: "float",
-    ws.UniformVec2: "vec2",
-    ws.UniformVec3: "vec3",
+    gls.UniformFloat: "float",
+    gls.UniformVec2: "vec2",
+    gls.UniformVec3: "vec3",
 }
 
 # A mapper from operation type to shader line template
@@ -320,13 +328,13 @@ def recursive_parse_param(expression , params, uniforms, dtype=th.float32, devic
             if isinstance(param, sp.Integer):
                 param = th.tensor(float(param), dtype=dtype, device=device)
             shader_params.append(param)
-        elif isinstance(param, (ws.VecList)):
+        elif isinstance(param, (gls.VecList)):
             vector_list, n_vecs = param.args
             under_params = vector_list
             under_expression = param
             cur_params = recursive_parse_param(under_expression, under_params, uniforms)
             shader_params.append(cur_params)
-        elif isinstance(param, (ws.UniformVec2, ws.UniformVec3)):
+        elif isinstance(param, (gls.UniformVec2, gls.UniformVec3)):
             min_val, default_val, max_val, uniform_name = param.args
             uniform_name = uniform_name.name
             if uniform_name in uniforms:
@@ -335,7 +343,7 @@ def recursive_parse_param(expression , params, uniforms, dtype=th.float32, devic
                 param = default_val
             param = param_primitive_process(param, dtype, device)
             shader_params.append(param)
-        elif isinstance(param, (ws.UniformFloat)):
+        elif isinstance(param, (gls.UniformFloat)):
             min_val, default_val, max_val, uniform_name = param.args
             uniform_name = uniform_name.name
             if uniform_name in uniforms:
@@ -345,20 +353,20 @@ def recursive_parse_param(expression , params, uniforms, dtype=th.float32, devic
             param = param_primitive_process(param, dtype, device)
             param = param.unsqueeze(0)
             shader_params.append(param)
-        elif isinstance(param, (ws.Vec2, ws.Vec3, ws.Vec4)):
+        elif isinstance(param, (gls.Vec2, gls.Vec3, gls.Vec4)):
             # Now its input can be a math node, or a variable. 
             under_expression = param
             under_params = param.args
             cur_params = recursive_parse_param(under_expression, under_params, uniforms)
             cur_params = th.cat(cur_params, dim=0)
             shader_params.append(cur_params)
-        elif isinstance(param, (ws.Float,)):
+        elif isinstance(param, (gls.Float,)):
             # Now its input can be a math node, or a variable. 
             under_expression = param
             under_params = param.args
             cur_params = recursive_parse_param(under_expression, under_params, uniforms)
             shader_params.append(cur_params[0])
-        elif isinstance(param, ws.VarSplitter):
+        elif isinstance(param, gls.VarSplitter):
             under_expression = param
             under_params = param.args
             cur_params = recursive_parse_param(under_expression, under_params, uniforms)
@@ -366,7 +374,7 @@ def recursive_parse_param(expression , params, uniforms, dtype=th.float32, devic
             new_param = cur_params[0]
             shader_params.append(new_param[selected_ind])
             
-        elif isinstance(param, (ws.UnaryOperator, ws.VectorOperator)):
+        elif isinstance(param, (gls.UnaryOperator, gls.VectorOperator)):
             under_expression = param
             under_params = param.args
             cur_params = recursive_parse_param(under_expression, under_params, uniforms)
@@ -375,7 +383,7 @@ def recursive_parse_param(expression , params, uniforms, dtype=th.float32, devic
             op_func = map_op_map_vec[op]
             param = op_func(new_param)
             shader_params.append(param)
-        elif isinstance(param, ws.BinaryOperator):
+        elif isinstance(param, gls.BinaryOperator):
             under_expression = param
             under_params = param.args
             cur_params = recursive_parse_param(under_expression, under_params, uniforms)
