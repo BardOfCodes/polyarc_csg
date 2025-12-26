@@ -41,6 +41,7 @@ Applying morphological operators on inexact SDF results in wrong outputs. Here w
 | **Erosion**  | <p align="center"><img src="assets/incorrect_1_erosion.png"  width="320"/></p> | <p align="center"><img src="assets/correct_1_erosion.png"  width="320"/></p> |
 
 </div>
+
 ## Application 3: Extruded 3D Primitives
 
 As noted by Inigo Quílez, a 3D shape with an **exact signed distance field** can be constructed by extruding a 2D shape whose SDF is itself exact. In this setting, correctness of the 3D SDF directly inherits from the correctness of the underlying 2D CSG formulation.
@@ -73,7 +74,7 @@ This inexactness causes practical failures:
 
 ---
 
-### Statement
+### Solution
 
 Let \( F \) be a 2D CSG expression composed of primitives
 \[
@@ -81,7 +82,7 @@ F = \mathcal{C}(P_1, P_2, \dots, P_n),
 \]
 where \( \mathcal{C} \) denotes a Boolean formula over union, intersection, and difference.
 
-Assume that:
+If:
 
 1. For each primitive \( P_i \), its signed distance function \( d_i(x) \) is known *exactly*.
 2. The boundary curves of all primitives involved in \( F \), as well as those induced by Boolean composition, form a set of **non-intersecting curve segments**.
