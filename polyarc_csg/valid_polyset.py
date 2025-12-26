@@ -20,13 +20,14 @@ from .polyset import (
     clean_polyset
 )
 from .polyarc import union_multiple, intersection_multiple, difference_multiple
-from .expression_parser import resolve_to_transform_free_polyarc_expr, resolve_difference
+from .generic_to_polyset import expr_to_polyarc_expr, resolve_difference
 
 __all__ = [
-    "parse_csg_to_valid_polyset_csg",
+    "expr_to_valid_polyset_expr",
     "resolve_intersection",
     "resolve_unions",
 ]
+
 
 
 def _csg_to_polyterms(expr_list: List[GLFunction]) -> List[prs.PolyArc]:
@@ -159,7 +160,9 @@ def resolve_unions(cnf_expression: GLFunction) -> GLFunction:
 
             positives_resolved = union_multiple(positives) if positives else None
             negatives_resolved = intersection_multiple(negatives) if negatives else None
-
+            ## FIX - If negative_resolved is "everything", then Pos - Everthing is Null
+            if negatives and not negatives_resolved:
+                positives_resolved = []
             if negatives_resolved and positives_resolved:
                 resolved = _flip_sign(difference_multiple(negatives_resolved, positives_resolved))
             elif positives_resolved:
@@ -182,6 +185,9 @@ def resolve_unions(cnf_expression: GLFunction) -> GLFunction:
         positives_resolved = intersection_multiple(positives) if positives else None
         negatives_resolved = union_multiple(negatives) if negatives else None
 
+        ## FIX - If negative_resolved is "everything", then Pos - Everthing is Null
+        if negatives and not negatives_resolved:
+            positives_resolved = []
         if negatives_resolved and positives_resolved:
             resolved = difference_multiple(positives_resolved, negatives_resolved)
         elif positives_resolved:
@@ -206,7 +212,7 @@ def resolve_unions(cnf_expression: GLFunction) -> GLFunction:
         return gls.NullExpression2D()
 
 
-def parse_csg_to_valid_polyset_csg(
+def expr_to_valid_polyset_expr(
     expression: GLFunction, 
     sketcher, 
     *args, 
@@ -233,7 +239,7 @@ def parse_csg_to_valid_polyset_csg(
     iteration_count = 0
     
     # Resolve transforms and convert to polyarc expressions
-    expression = resolve_to_transform_free_polyarc_expr(expression, sketcher, *args, **kwargs)
+    expression = expr_to_polyarc_expr(expression, sketcher, *args, **kwargs)
     expression = upscale_polyexpr(expression)
     expression = resolve_difference(expression)
 

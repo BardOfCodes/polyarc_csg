@@ -175,13 +175,24 @@ def polyset_to_csg(polyset: List[prs.PolyArc]) -> GLFunction:
         gls.Complement(expr) if roots[ind].mode == -1 else expr 
         for ind, expr in enumerate(root_exprs)
     ]
-
-    if len(root_exprs) > 1:
-        return gls.Union(*root_exprs)
+    if len(root_exprs) == 0:
+        return gls.NullExpression2D()
     elif len(root_exprs) == 1:
         return root_exprs[0]
     else:
-        return gls.NullExpression2D()
+        # if all negative make intersection. 
+        signs = [root.mode for root in roots]
+        positives = [expr for expr, sign in zip(root_exprs, signs) if sign == 1]
+        negatives = [expr for expr, sign in zip(root_exprs, signs) if sign == -1]
+        if positives and negatives:
+            # Then we need to make a tree which maps to the inverse of input. 
+            return gls.Intersection(gls.Union(*positives), gls.Intersection(*negatives))
+        elif positives:
+            return gls.Union(*positives)
+        elif negatives:
+            return gls.Intersection(*negatives)
+        else:
+            return gls.NullExpression2D()
 
 
 def extract_primitives_with_signs(
