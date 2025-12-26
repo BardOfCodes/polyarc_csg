@@ -1,6 +1,6 @@
 """Offset operations for PolySets."""
 import logging
-from typing import List
+from typing import List, Literal, Tuple
 
 import numpy as np
 import torch
@@ -24,10 +24,15 @@ __all__ = [
 
 logger = logging.getLogger(__name__)
 
-EPSILON = 1e-7
+EPSILON: float = 1e-7
+
+# Type aliases
+Orientation = Literal["CW", "CCW"]
+PolyArcVertex = Tuple[float, float, float]
+PolyArcTuple = Tuple[PolyArcVertex, ...]
 
 
-def determine_polyarc_orientation(poly: prs.PolyArc, device: str = "cuda") -> str:
+def determine_polyarc_orientation(poly: prs.PolyArc, device: str = "cuda") -> Orientation:
     """
     Determines whether a closed polyarc is clockwise (CW) or counterclockwise (CCW).
     
@@ -73,7 +78,7 @@ def determine_polyarc_orientation(poly: prs.PolyArc, device: str = "cuda") -> st
     return "CCW" if total_area > 0 else "CW"
 
 
-def get_reverse_sequence(polyarc: tuple) -> tuple:
+def get_reverse_sequence(polyarc: PolyArcTuple) -> PolyArcTuple:
     """
     Reverses the vertex sequence of a polyarc, adjusting bulges accordingly.
     
@@ -159,8 +164,13 @@ def get_offset_expr(
             offset_curves = prs.offset_polyarc(cleaned_poly, actual_offset, True)
             
             offset_polyset.extend(offset_curves)
-        except Exception as e:
+        except (ValueError, RuntimeError) as e:
+            # ValueError: invalid polyarc data or offset parameters
+            # RuntimeError: polyarc_rs offset operation failed
             logger.warning(f"Failed to offset polyarc: {e}")
+        except TypeError as e:
+            # TypeError: wrong argument types passed to polyarc_rs
+            logger.warning(f"Invalid polyarc type during offset: {e}")
     
     if upscale:
         offset_polyset = downscale_polyset(offset_polyset, factor)

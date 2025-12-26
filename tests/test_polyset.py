@@ -93,4 +93,3 @@ class TestPolysetToCsg:
         hole_2 = create_square(20, 20, 10, mode=-1)
         csg = polyset_to_csg([root, hole_1, island_1, hole_2])
         assert isinstance(csg, gls.Difference)
-

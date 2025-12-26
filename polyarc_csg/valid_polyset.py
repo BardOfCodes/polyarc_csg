@@ -4,9 +4,10 @@ Parser for converting CSG expressions to valid PolySets.
 Handles DNF/CNF transformations and iterative refinement to produce
 valid PolySets from arbitrary CSG expressions.
 """
-from typing import List, Optional, Tuple
+from typing import Any, List, Optional, Tuple
 
 from geolipi.symbolic.base import GLFunction
+from geolipi.torch_compute.sketcher import Sketcher
 import geolipi.symbolic as gls
 from geolipi.torch_compute.batch_compile import expr_to_dnf, expr_to_cnf
 import polyarc_rs as prs
@@ -42,7 +43,7 @@ def _csg_to_polyterms(expr_list: List[GLFunction]) -> List[prs.PolyArc]:
     ]
 
 
-def _get_pos_and_neg(args) -> Tuple[List[prs.PolyArc], List[prs.PolyArc]]:
+def _get_pos_and_neg(args: Tuple[GLFunction, ...]) -> Tuple[List[prs.PolyArc], List[prs.PolyArc]]:
     """Separate arguments into positive and negative (complemented) terms."""
     positives = [arg for arg in args if not isinstance(arg, gls.Complement)]
     negatives = [arg.args[0] for arg in args if isinstance(arg, gls.Complement)]
@@ -214,9 +215,9 @@ def resolve_unions(cnf_expression: GLFunction) -> GLFunction:
 
 def expr_to_valid_polyset_expr(
     expression: GLFunction, 
-    sketcher, 
-    *args, 
-    **kwargs
+    sketcher: Sketcher, 
+    *args: Any, 
+    **kwargs: Any
 ) -> GLFunction:
     """
     Converts an arbitrary CSG expression into a valid PolySet CSG expression.

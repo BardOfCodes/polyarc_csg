@@ -204,6 +204,3 @@ class TestDifferenceMultiple:
         b2 = create_square(15, 0, 5)
         result = difference_multiple([a1, a2], [b1, b2])
         assert len(result) >= 2
-
-
-

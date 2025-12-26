@@ -23,7 +23,7 @@ The following examples compare standard SDF evaluation against Resolved PolyArc-
 
 ---
 
-## Application2: Morphological operations
+## Application 2: Morphological operations
 
 Applying morphological operators on inexact SDF results in wrong outputs. Here we compare application of morphological operation on basic and resolved polyarc expressions.
 
@@ -292,4 +292,4 @@ MIT
 1. Scale does not work correctly currently. Needs more investigation.
 2. Universal testing still pending.  
 3. Additional primitives that can be mapped to PolyArcs are listed in [`polyarc_csg/prim_map.py`](polyarc_csg/prim_map.py). If need be this repository can be extended to support these as well. 
-4. THere are some issues with polyarc boolean operations stemming from either cavalier_contours, or polyarc_rs. This can lead to incorrect resolution at times.
+4. There are some issues with polyarc boolean operations stemming from either cavalier_contours, or polyarc_rs. This can lead to incorrect resolution at times.

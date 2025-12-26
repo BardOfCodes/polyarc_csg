@@ -17,6 +17,7 @@ dependencies = [
     "networkx",
     "numpy",
     "torch",
+    "geolipi",
 ]
 
 [project.optional-dependencies]

@@ -1,6 +1,9 @@
 """Boolean operations on lists of PolyArcs."""
-from typing import List
+from typing import List, Literal
 import polyarc_rs as prs
+
+# Type alias for boolean operation modes
+BooleanMode = Literal["union", "intersection", "difference", "xor"]
 
 __all__ = [
     "union", "intersection", "difference", "xor",
@@ -61,7 +64,7 @@ def is_2_inside_1(a: prs.PolyArc, b: prs.PolyArc) -> bool:
     return prs.is_2_inside_1(a, b)
 
 
-def deduplicate_union(polyarcs: List[prs.PolyArc], bool_mode: str = "union") -> List[prs.PolyArc]:
+def deduplicate_union(polyarcs: List[prs.PolyArc], bool_mode: BooleanMode = "union") -> List[prs.PolyArc]:
     """
     Removes redundant polyarcs from the list by checking for:
     - Exact overlaps

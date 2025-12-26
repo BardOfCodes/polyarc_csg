@@ -10,9 +10,8 @@ import pytest
 pytestmark = pytest.mark.skip(reason="Parser tests require geolipi Sketcher setup")
 
 
-# TODO: Add parser tests when sketcher can be mocked or properly initialized
-# The original tests in scripts/parse_test.py used an older API that didn't require sketcher.
-# Current API: parse_csg_to_valid_polyset_csg(expression, sketcher, *args, **kwargs)
-
+# TODO: Add random CSG generation. Then 
+# Test that occupancy matches. 
+# Test that SDF is within error tolerance. For creating GT use Scipy. 
 
 

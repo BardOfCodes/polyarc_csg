@@ -16,15 +16,14 @@ def pytest_configure(config):
 
 
 @pytest.fixture
-def prs():
+def polyarc_rs_module():
     """Fixture providing polyarc_rs module."""
     import polyarc_rs
     return polyarc_rs
 
 
 @pytest.fixture
-def gls():
+def geolipi_symbolic():
     """Fixture providing geolipi.symbolic module."""
     import geolipi.symbolic
     return geolipi.symbolic
-

@@ -4,7 +4,8 @@ PolySet operations - validation, CSG conversion, and enclosure tree construction
 A PolySet is a list of PolyArc objects representing a 2D region with potential holes.
 """
 import logging
-from typing import List, Optional, Tuple
+from contextlib import contextmanager
+from typing import List, Optional, Tuple, Generator
 
 import networkx as nx
 import polyarc_rs as prs
@@ -15,6 +16,7 @@ __all__ = [
     "UPSCALING_FACTOR",
     "set_upscaling_factor",
     "get_upscaling_factor",
+    "upscaling_context",
     "construct_enclosure_tree",
     "construct_enclosure_sequences",
     "is_valid_polyset",
@@ -24,12 +26,13 @@ __all__ = [
     "upscale_polyexpr",
     "downscale_polyset",
     "extract_primitives_with_signs",
+    "PolyArcCleaningError",
 ]
 
 logger = logging.getLogger(__name__)
 
 # Default upscaling factor for higher numerical precision
-# Can be overridden by setting polyarc_csg.polyset.UPSCALING_FACTOR
+# Can be overridden using set_upscaling_factor() or upscaling_context()
 UPSCALING_FACTOR = 1000
 
 
@@ -39,6 +42,9 @@ def set_upscaling_factor(factor: int) -> None:
     
     Args:
         factor: The new upscaling factor (default is 1000).
+    
+    Note:
+        For thread-safe usage, prefer upscaling_context() instead.
     """
     global UPSCALING_FACTOR
     UPSCALING_FACTOR = factor
@@ -47,6 +53,35 @@ def set_upscaling_factor(factor: int) -> None:
 def get_upscaling_factor() -> int:
     """Get the current upscaling factor."""
     return UPSCALING_FACTOR
+
+
+@contextmanager
+def upscaling_context(factor: int) -> Generator[None, None, None]:
+    """
+    Context manager for temporarily changing the upscaling factor.
+    
+    This is the preferred way to modify the upscaling factor as it
+    ensures the original value is restored even if an exception occurs.
+    
+    Args:
+        factor: The temporary upscaling factor to use.
+    
+    Yields:
+        None
+    
+    Example:
+        >>> with upscaling_context(2000):
+        ...     # Operations here use factor=2000
+        ...     result = expr_to_valid_polyset_expr(expr, sketcher)
+        >>> # Original factor is restored here
+    """
+    global UPSCALING_FACTOR
+    original_factor = UPSCALING_FACTOR
+    try:
+        UPSCALING_FACTOR = factor
+        yield
+    finally:
+        UPSCALING_FACTOR = original_factor
 
 
 def construct_enclosure_tree(polyset: List[prs.PolyArc]) -> nx.DiGraph:
@@ -225,7 +260,7 @@ def extract_primitives_with_signs(
     return primitives
 
 
-def _tuple_to_tuple(polyarc) -> tuple:
+def _tuple_to_tuple(polyarc: Tuple[Tuple[float, float, float], ...]) -> Tuple[Tuple[float, float, float], ...]:
     """Convert a polyarc argument to a tuple of (x, y, bulge) tuples."""
     return tuple((x[0], x[1], x[2]) for x in polyarc)
 
@@ -248,6 +283,11 @@ def csg_to_polyset(expression: GLFunction) -> List[prs.PolyArc]:
     return polyset
 
 
+class PolyArcCleaningError(Exception):
+    """Raised when cleaning a polyarc fails."""
+    pass
+
+
 def clean_polyset(polyset: List[prs.PolyArc]) -> List[prs.PolyArc]:
     """
     Cleans a PolySet by removing redundant vertices and empty shapes.
@@ -257,6 +297,9 @@ def clean_polyset(polyset: List[prs.PolyArc]) -> List[prs.PolyArc]:
         
     Returns:
         A cleaned PolySet.
+    
+    Note:
+        Polyarcs that fail to clean are skipped with a warning logged.
     """
     cleaned_polyset = []
     for poly in polyset:
@@ -270,8 +313,13 @@ def clean_polyset(polyset: List[prs.PolyArc]) -> List[prs.PolyArc]:
 
             if abs(area) > 0.0 and abs(length) > 0.0:
                 cleaned_polyset.append(cleaned_poly)
-        except Exception as e:
+        except (ValueError, RuntimeError) as e:
+            # ValueError: invalid polyarc data
+            # RuntimeError: polyarc_rs operation failed
             logger.warning(f"Failed to clean polyarc: {e}")
+        except TypeError as e:
+            # TypeError: wrong argument types passed to polyarc_rs
+            logger.warning(f"Invalid polyarc type during cleaning: {e}")
     
     return cleaned_polyset
 
